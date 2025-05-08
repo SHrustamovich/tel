@@ -3,8 +3,8 @@ const cors = require("cors");
 const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 
-const token = BOT_TOKEN;
-const adminChatIds = [ADMIN_CHAT_IDS];
+const token = process.env.BOT_TOKEN;
+const adminChatIds = [process.env.ADMIN_CHAT_IDS];
 
 const app = express();
 app.use(cors());
