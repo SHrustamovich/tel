@@ -4,13 +4,19 @@ const TelegramBot = require("node-telegram-bot-api");
 require("dotenv").config();
 
 const token = process.env.BOT_TOKEN;
-const adminChatIds = [process.env.ADMIN_CHAT_IDS];
+const adminChatIds = process.env.ADMIN_CHAT_IDS.split(","); // bir nechta ID bo'lsa array bo'ladi
+const baseUrl = process.env.BASE_URL; // Railway URL
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token, { webHook: { port: false } });
+
+// Webhook ni o‘rnatish
+bot.setWebHook(`${baseUrl}/bot${token}`);
+
+let applications = [];
 
 const mainMenu = {
     reply_markup: {
@@ -20,7 +26,11 @@ const mainMenu = {
     },
 };
 
-let applications = [];
+// Telegram webhook handler
+app.post(`/bot${token}`, (req, res) => {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+});
 
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
@@ -49,14 +59,12 @@ bot.on("message", (msg) => {
     }
 
     if (text.toLowerCase() === "/list" || text.toLowerCase() === "list") {
-        const recentApps = applications;
-
-        if (recentApps.length === 0) {
+        if (applications.length === 0) {
             bot.sendMessage(chatId, "📭 Hozircha hech qanday ariza yo‘q.");
         } else {
             let message = `📋 Arizalar ro‘yxati:\n\n`;
 
-            recentApps.forEach((app, index) => {
+            applications.forEach((app, index) => {
                 const appTime = new Date(app.time);
                 const hours = appTime.getHours().toString().padStart(2, "0");
                 const minutes = appTime
@@ -68,7 +76,6 @@ bot.on("message", (msg) => {
                     .toString()
                     .padStart(2, "0");
                 const year = appTime.getFullYear();
-
                 const formattedTime = `${hours}:${minutes} | ${day}.${month}.${year}`;
 
                 message += `${index + 1}. 👤 ${app.name}\n📞 ${app.phone}\n📚 ${
@@ -81,6 +88,7 @@ bot.on("message", (msg) => {
     }
 });
 
+// Frontdan kelgan so‘rovni qabul qilish
 app.post("/send", (req, res) => {
     const { name, phone, course } = req.body;
 
@@ -99,7 +107,7 @@ app.post("/send", (req, res) => {
 👤 F.I.Sh: ${name}
 📞 Tel: ${phone}
 📚 Kurs: ${course}
-  `;
+    `;
 
     adminChatIds.forEach((id) => {
         bot.sendMessage(id, message).catch((err) => {
